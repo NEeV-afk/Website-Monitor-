@@ -1,7 +1,4 @@
 import time
-import os
-os.system("pip install telebot requests pyTelegramBotAPI pymongo")
-os.system("clear")
 import requests
 import logging
 from telebot import TeleBot
@@ -70,9 +67,13 @@ def handle_start(message):
     users_collection.update_one({"chat_id": chat_id}, {"$set": {"first_name": first_name}}, upsert=True)
 
     try:
-        bot.send_message(chat_id, f"Welcome {first_name}🥰!\n\n"
-                                  "You Can Monitor Your Websites And Get Notified If They Goes Down🖥️.\n\n"
-                                  "Use /help To Use The Bot ")
+        bot.send_message(chat_id, f"Welcome {first_name}!\n\n"
+                                  "You can monitor your favorite websites and get notified if they go down.\n\n"
+                                  "Commands:\n"
+                                  "/addwebsite <url> - Add a website for monitoring.\n"
+                                  "/list - List your monitored websites.\n"
+                                  "/remove <website_id> - Remove a monitored website.\n\n"
+                                  "Monitoring happens every 30 seconds with updates every 6 hours.")
     except Exception as e:
         logging.error(f"Error handling /start for chat {chat_id}: {e}")
 
@@ -85,7 +86,7 @@ def handle_addwebsite(message):
     try:
         website_url = message.text.split()[1]
         if not website_url.startswith("http"):
-            bot.send_message(chat_id, "Please Provide A Valid URL (starting with http or https).")
+            bot.send_message(chat_id, "Please provide a valid URL (starting with http or https).")
             return
         # Add the website to the database
         websites_collection.insert_one({
@@ -94,9 +95,9 @@ def handle_addwebsite(message):
             "last_checked_time": 0,
             "last_update_time": 0
         })
-        bot.send_message(chat_id, f"Website Monitoring Started For URL: {website_url}")
+        bot.send_message(chat_id, f"Website monitoring started for URL: {website_url}")
     except IndexError:
-        bot.send_message(chat_id, "Please Provide A Valid URL. Example:\n/addwebsite <url>")
+        bot.send_message(chat_id, "Please provide a valid URL. Example:\n/addwebsite <url>")
     except Exception as e:
         logging.error(f"Error adding website for chat {chat_id}: {e}")
         bot.send_message(chat_id, "An error occurred while adding the website.")
@@ -110,10 +111,10 @@ def handle_list(message):
     try:
         websites = list(websites_collection.find({"chat_id": chat_id}))
         if not websites:
-            bot.send_message(chat_id, "You Are Not Monitoring Any Websites🖥️.")
+            bot.send_message(chat_id, "You are not monitoring any websites.")
             return
 
-        response = "Your Monitored Websites:\n"
+        response = "Your monitored websites:\n"
         for website in websites:
             response += f"- ID: {website['_id']} | URL: {website['website_url']}\n"
         bot.send_message(chat_id, response)
@@ -131,11 +132,11 @@ def handle_remove(message):
         website_id = message.text.split()[1]
         result = websites_collection.delete_one({"_id": ObjectId(website_id), "chat_id": chat_id})
         if result.deleted_count > 0:
-            bot.send_message(chat_id, "The Website Has Been Removed.")
+            bot.send_message(chat_id, "The website has been removed.")
         else:
             bot.send_message(chat_id, "Website not found or you don't have permission to remove it.")
     except IndexError:
-        bot.send_message(chat_id, "Please Provide A Valid Website ID🥴. Example:\n/remove <website_id>")
+        bot.send_message(chat_id, "Please provide a valid website ID. Example:\n/remove <website_id>")
     except Exception as e:
         logging.error(f"Error removing website for chat {chat_id}: {e}")
         bot.send_message(chat_id, "An error occurred while removing the website.")
@@ -152,12 +153,13 @@ def handle_help(message):
         bot.send_message(
             chat_id,
             "Here are the available commands:\n\n"
-            "/start - Start The Bot And Get A Welcome Message.\n"
+            "/start - Start the bot and get a welcome message.\n"
+            "/help - Show this help message with a list of all commands.\n"
             "/addwebsite <url> - Add a website to monitor.\n"
-            "/list - List's All Websites You Are Monitoring.\n"
-            "/remove <website_id> - Remove A Monitored Website.\n\n"
+            "/list - List all websites you are monitoring.\n"
+            "/remove <website_id> - Remove a monitored website.\n\n"
             "Admins Only:\n"
-            "/broadcast <message> - Onyl Admin Can Send."
+            "/broadcast <message> - Send a broadcast message to all users."
         )
     except Exception as e:
         logging.error(f"Error handling /help for chat {chat_id}: {e}")
@@ -170,13 +172,13 @@ def handle_broadcast(message):
     """
     chat_id = message.chat.id
     if chat_id not in ADMINS:
-        bot.send_message(chat_id, "You Do Not Have Permission To Use This Command❌")
+        bot.send_message(chat_id, "You do not have permission to use this command.")
         return
 
     try:
         broadcast_message = " ".join(message.text.split()[1:])
         if not broadcast_message:
-            bot.send_message(chat_id, "Please Provide A Message To Broadcast. Example:\n/Broadcast <message>")
+            bot.send_message(chat_id, "Please provide a message to broadcast. Example:\n/broadcast <message>")
             return
 
         users = users_collection.find()
@@ -189,7 +191,7 @@ def handle_broadcast(message):
             except Exception as e:
                 logging.error(f"Error sending broadcast to {user['chat_id']}: {e}")
 
-        bot.send_message(chat_id, f"Broadcast message sent successfully to {sent_count} users📢")
+        bot.send_message(chat_id, f"Broadcast message sent successfully to {sent_count} users.")
     except Exception as e:
         logging.error(f"Error broadcasting message: {e}")
         bot.send_message(chat_id, "An error occurred while broadcasting the message.")
@@ -215,7 +217,7 @@ def monitor_websites():
                     websites_collection.update_one({"_id": website["_id"]}, {"$set": {"last_checked_time": current_time}})
 
                     if not is_up:
-                        send_telegram_message(chat_id, f"⚠️ Alert: The Website {website_url} Is Down!📉")
+                        send_telegram_message(chat_id, f"⚠️ Alert: The website {website_url} is down!")
                     elif current_time - last_update_time >= 6 * 60 * 60:  # 6-hour update
                         send_telegram_message(chat_id, f"✅ Status Update: The website {website_url} is up and running!")
                         websites_collection.update_one({"_id": website["_id"]}, {"$set": {"last_update_time": current_time}})
@@ -229,9 +231,30 @@ def monitor_websites():
 monitor_thread = Thread(target=monitor_websites)
 monitor_thread.start()
 
-# Start the bot
-try:
-    bot.polling(none_stop=True)
-except Exception as e:
-    logging.critical(f"Bot polling failed: {e}")
-    
+def start_bot():
+    """
+    Starts the bot and ensures it restarts if polling fails.
+    """
+    while True:
+        try:
+            logging.info("Starting bot polling...")
+            bot.polling(none_stop=True, timeout=30)
+        except Exception as e:
+            logging.error(f"Bot polling failed: {e}")
+            time.sleep(5)  # Wait before restarting polling
+
+def start_bot():
+    """
+    Starts the bot and ensures it restarts if polling fails.
+    """
+    while True:
+        try:
+            logging.info("Starting bot polling...")
+            bot.polling(none_stop=True, timeout=30)
+        except Exception as e:
+            logging.error(f"Bot polling failed: {e}")
+            time.sleep(5)  # Wait before restarting polling
+
+# Start the bot with auto-restart
+bot_thread = Thread(target=start_bot)
+bot_thread.start()
