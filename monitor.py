@@ -8,7 +8,7 @@ from bson import ObjectId
 import re
 
 # Telegram bot token and MongoDB connection details
-BOT_TOKEN = "8120748600:AAHzL3D0_ZH9qljumss8ePi5v9e6eZr5Src"
+BOT_TOKEN = "8120748600:AAHWKZSwocxdaD4d7qchNRO920Z5kQl5q60"
 MONGO_URL = "mongodb+srv://botplays:botplays@vulpix.ffdea.mongodb.net/?retryWrites=true&w=majority&appName=Vulpix"
 
 # Admin list (Telegram user IDs)
