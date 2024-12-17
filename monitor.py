@@ -6,6 +6,7 @@ from pymongo import MongoClient
 from threading import Thread
 from bson import ObjectId
 import re
+from flask import Flask
 
 # Telegram bot token and MongoDB connection details
 BOT_TOKEN = "8120748600:AAHWKZSwocxdaD4d7qchNRO920Z5kQl5q60"
@@ -13,6 +14,19 @@ MONGO_URL = "mongodb+srv://botplays:botplays@vulpix.ffdea.mongodb.net/?retryWrit
 
 # Admin list (Telegram user IDs)
 ADMINS = [6897739611]  # Replace with admin IDs
+
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I am alive"
+
+def run_http_server():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run_http_server)
+    t.start()
 
 # Initialize the Telegram bot and MongoDB client
 bot = TeleBot(BOT_TOKEN)
@@ -222,39 +236,17 @@ def monitor_websites():
                         send_telegram_message(chat_id, f"✅ Status Update: The website {website_url} is up and running!")
                         websites_collection.update_one({"_id": website["_id"]}, {"$set": {"last_update_time": current_time}})
 
-            time.sleep(5)  # Wait to reduce CPU usage
-        except Exception as e:
-            logging.error(f"Error in monitoring loop: {e}")
-            time.sleep(10)  # Wait before restarting the loop
+            except Exception as e:
+        bot.reply_to(call.message, f"Error: {str(e)}")
+        time.sleep(5)
+        restart_bot()
 
-# Start monitoring in a separate thread
-monitor_thread = Thread(target=monitor_websites)
-monitor_thread.start()
-
-def start_bot():
-    """
-    Starts the bot and ensures it restarts if polling fails.
-    """
+if __name__ == "__main__":
+    keep_alive()
+    
     while True:
         try:
-            logging.info("Starting bot polling...")
-            bot.polling(none_stop=True, timeout=30)
+            bot.polling(none_stop=True)
         except Exception as e:
-            logging.error(f"Bot polling failed: {e}")
-            time.sleep(5)  # Wait before restarting polling
-
-def start_bot():
-    """
-    Starts the bot and ensures it restarts if polling fails.
-    """
-    while True:
-        try:
-            logging.info("Starting bot polling...")
-            bot.polling(none_stop=True, timeout=30)
-        except Exception as e:
-            logging.error(f"Bot polling failed: {e}")
-            time.sleep(5)  # Wait before restarting polling
-
-# Start the bot with auto-restart
-bot_thread = Thread(target=start_bot)
-bot_thread.start()
+            print(f"Error occurred: {str(e)}")
+            time.sleep(5)
